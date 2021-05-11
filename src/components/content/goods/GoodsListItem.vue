@@ -1,6 +1,6 @@
 <template>
-  <div class="goods-item">
-    <img :src="goodsItem.show.img" alt="" @load="imageLoad" />
+  <div class="goods-item" @click="itemClick">
+    <img :src="goodsImage" alt="" @load="imageLoad" />
     <div class="goods-info">
       <p>{{ goodsItem.title }}</p>
       <span class="price">{{ goodsItem.price }}</span>
@@ -25,6 +25,17 @@ export default {
     // 解决：图片每次加载会响应事件，通知Home.vue做处理
     imageLoad() {
       this.$bus.$emit('itemImageLoad')
+    },
+    // 商品点击，跳转到详情页
+    itemClick() {
+      this.$router.push('/detail/' + this.goodsItem.iid)
+    }
+  },
+  computed: {
+    goodsImage() {
+      // 首页商品项的图片：goodsItem.show.img
+      // 详情页推荐数据的图片：goodsItem.image
+      return this.goodsItem.show ? this.goodsItem.show.img : this.goodsItem.image
     }
   }
 }

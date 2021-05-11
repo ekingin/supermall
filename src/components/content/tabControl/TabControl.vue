@@ -29,7 +29,13 @@ export default {
   methods: {
     itemClick(index) {
       this.currentIndex = index
-      this.$emit('tabClick', index)
+      if(this.$route.path.indexOf('/home') !== -1){
+        // 给首页发射父子事件
+        this.$emit('tabClick', index)
+      }else if(this.$route.path.indexOf('detail') !== -1){
+        // 给详情页发射总线事件
+        this.$bus.$emit('detailTabControl', index)
+      }
     }
   }
 }

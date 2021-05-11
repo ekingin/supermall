@@ -1,16 +1,22 @@
 <template>
   <div id="home">
     <nav-bar class="home-nav" ><div slot="center">购物街</div></nav-bar>
+    <tab-control :titles="['流行', '新款', '精选']"
+                 @tabClick="tabClick"
+                 ref="tabControl1"
+                 v-show="isTabFixed"/>
     <scroll class="content"
             ref="scroll"
             :probe-type="3"
             @scroll="contentScroll"
             :pull-up-load="true"
             @pullingUp="loadMore">
-      <home-swiper :banners="banners" />
+      <home-swiper :banners="banners" @swiperImgLoad="swiperImgLoad"/>
       <recommend-view :recommends="recommends" />
       <feature-view/>
-      <tab-control :titles="['流行', '新款', '精选']" class="tab-control" @tabClick="tabClick"/>
+      <tab-control :titles="['流行', '新款', '精选']"
+                   @tabClick="tabClick"
+                   ref="tabControl2"/>
       <goods-list :goods="goodsList" />
     </scroll>
     <back-top @click.native="backTopClick" v-show="isShowBackTop"/>
@@ -29,6 +35,7 @@
   import FeatureView from "./childComps/FeatureView"
 
   import {getHomeMultiData, getHomeGoods} from "../../network/home"
+  import {imgListenerMixin} from "common/mixin";
 
   export default {
     name: "Home",
@@ -42,35 +49,13 @@
       GoodsList,
       BackTop
     },
-    data() {
-      return {
-        banners: [],
-        recommends: [],
-        goods: {
-          'pop': {page: 0, list: []},
-          'new': {page: 0, list: []},
-          'sell': {page: 0, list: []}
-        },
-        currentType: 'pop',
-        isShowBackTop: false
-      }
-    },
     computed: {
+      // 根据当前商品类型计算出相应list
       goodsList() {
         return this.goods[this.currentType].list
       }
     },
-    created() {
-      // 获取banners和recommends
-      this.getHomeMultiData()
-      // 获取商品数据
-      this.getHomeGoods('pop', 0)
-      this.getHomeGoods('new', 0)
-      this.getHomeGoods('sell', 0)
-
-      this.itemImageLoad()
-
-    },
+    mixins: [imgListenerMixin],
     methods: {
       /**
        * 监听事件的方法
@@ -78,22 +63,26 @@
       tabClick(index) {
         // Object.keys(this.goods): ["pop", "new", "sell"]
         this.currentType = Object.keys(this.goods)[index]
-      },
-      itemImageLoad() {
-        // GoodsListItem每加载一张图片都会监听到，拿到scroll组件中的BetterScroll对象，调用其refresh方法
-        this.$bus.$on('itemImageLoad', () => {
-          this.$refs.scroll.refresh();
-        })
+        // 保证两个tab-control的选项一致
+        this.$refs.tabControl1.currentIndex = index
+        this.$refs.tabControl2.currentIndex = index
       },
       backTopClick() {
         this.$refs.scroll.scrollTo(0, 0)
       },
       contentScroll(position) {
+        // 判断back-top是否显示
         this.isShowBackTop = (-position.y) > 1000
+        // 判断tab-control是否吸顶
+        this.isTabFixed = (-position.y) > this.tabOffsetTop
       },
       loadMore(){
         this.getHomeGoods(this.currentType)
         this.$refs.scroll.finishPullUp()
+      },
+      swiperImgLoad() {
+        // 当home-swiper图片加载完成时，记录此时的tab-control的offsetTop
+        this.tabOffsetTop = this.$refs.tabControl2.$el.offsetTop
       },
 
       /**
@@ -105,20 +94,51 @@
           this.recommends = res.data.recommend.list
         })
       },
-      getHomeGoods(type, page) {
-        page = this.goods[type].page + 1
+      getHomeGoods(type) {
+        const page = this.goods[type].page + 1
         getHomeGoods(type, page).then(res => {
+          // 数组中push另一个数组的所有元素，使用可变参数的形式
           this.goods[type].list.push(...res.data.list)
           this.goods[type].page += 1
         })
       }
+    },
+    data() {
+      return {
+        banners: [],
+        recommends: [],
+        goods: {
+          'pop': {page: 0, list: []},
+          'new': {page: 0, list: []},
+          'sell': {page: 0, list: []}
+        },
+        currentType: 'pop',
+        isShowBackTop: false,
+        tabOffsetTop: 0,
+        isTabFixed: false
+      }
+    },
+    created() {
+      // 获取banners和recommends
+      this.getHomeMultiData()
+      // 获取商品数据
+      this.getHomeGoods('pop')
+      this.getHomeGoods('new')
+      this.getHomeGoods('sell')
+
+    },
+    mounted() {
+    },
+    deactivated() {
+      // 当Home页面不活跃的时候，取消总线监听
+      this.$bus.$off('itemImageLoad', this.imgListener)
     }
   }
 </script>
 
 <style scoped>
   #home {
-    padding-top: 44px;
+    /*padding-top: 44px;*/
     width: 100%;
     height: 100vh;
     position: relative;
@@ -128,21 +148,22 @@
     background-color: var(--color-tint);
     color: #f6f6f6;
 
-  }
-
-  .tab-control {
-    position: sticky;
-    top: 44px;
-    z-index: 9;
+    /*position: fixed;*/
+    /*left: 0;*/
+    /*top: 0;*/
+    /*right: 0;*/
+    /*z-index: 9;*/
   }
 
   .content {
     overflow: hidden;
-    height: calc(100% - 93px + 44px);
+    height: calc(100% - 93px);
+
     /*position: absolute;*/
     /*top: 44px;*/
     /*left: 0;*/
     /*right: 0;*/
     /*bottom: 49px;*/
   }
+
 </style>
